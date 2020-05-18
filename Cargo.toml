@@ -3,19 +3,21 @@ authors = ["Felix Obenhuber <felix@obenhuber.de>"]
 build = "build.rs"
 name = "android-binder"
 version = "0.1.0"
+edition = "2018"
+
 [dependencies]
-byteorder = "1.1.0"
-cargo-make = "0.10.2"
+byteorder = "1"
+cargo-make = "0.30.7"
 hexdump = "0.1.0"
-log = "0.3.8"
-nix = "0.9.0"
+log = "0.4.8"
+nix = "0.17.0"
 
 [dependencies.error-chain]
 default-features = false
-version = "0.11.0"
+version = "0.12.2"
 
 [dev-dependencies]
-android_logger = "0.3.0"
+android_logger = "0.8.6"
 
 [features]
 binder_version_7 = []

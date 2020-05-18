@@ -16,13 +16,11 @@ use std::mem::size_of;
 use std::slice::from_raw_parts;
 
 macro_rules! hex {
-    ($x:expr) => {
-        {
-            for l in ::hexdump::hexdump_iter($x) {
-                debug!("{}", l);
-            }
+    ($x:expr) => {{
+        for l in ::hexdump::hexdump_iter($x) {
+            debug!("{}", l);
         }
-    };
+    }};
 }
 
 #[allow(dead_code)]

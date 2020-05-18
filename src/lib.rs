@@ -23,7 +23,7 @@ extern crate log;
 extern crate nix;
 #[macro_use]
 mod utils;
-mod types;
 mod binder;
-pub mod service;
 pub mod errors;
+pub mod service;
+mod types;

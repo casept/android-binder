@@ -13,16 +13,15 @@
 // limitations under the License.
 //
 
-extern crate android_logger;
+use android_logger;
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
 extern crate log;
-extern crate android_binder;
 
-use errors::*;
-use error_chain::ChainedError;
 use android_binder::service::ServiceManager;
+use error_chain::ChainedError;
+use errors::*;
 
 mod errors {
     error_chain! {
@@ -44,8 +43,10 @@ fn run() -> Result<i32> {
     // let r = permission.call(1, &p, 0).chain_err(|| "Failed to call")?;
     // debug!("Permission control result: {:?}", r);
 
-    info!("Available services:");
+    info!("Hello from Rust!");
     let service_manager = ServiceManager::new()?;
+    info!("Created service manager");
+    info!("Available services:");
     let services = service_manager.list_services()?;
     for s in services {
         debug!("  {}", s);
@@ -55,7 +56,7 @@ fn run() -> Result<i32> {
 }
 
 fn main() {
-    android_logger::init_once(log::LogLevel::Trace);
+    android_logger::init_once(android_logger::Config::default().with_min_level(log::Level::Trace));
     if let Err(ref e) = run() {
         error!("{}", e.display_chain());
         std::process::exit(1);

@@ -13,16 +13,15 @@
 // limitations under the License.
 //
 
-extern crate android_logger;
+use android_logger;
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
 extern crate log;
-extern crate android_binder;
 
-use errors::*;
-use error_chain::ChainedError;
 use android_binder::service::{Parcel, ServiceManager};
+use error_chain::ChainedError;
+use errors::*;
 
 mod errors {
     error_chain! {
@@ -41,7 +40,7 @@ fn run() -> Result<i32> {
 }
 
 fn main() {
-    android_logger::init_once(log::LogLevel::Trace);
+    android_logger::init_once(android_logger::Config::default().with_min_level(log::Level::Trace));
     if let Err(ref e) = run() {
         error!("{}", e.display_chain());
         std::process::exit(1);

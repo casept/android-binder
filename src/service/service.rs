@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use errors::*;
-use binder::binder::{CallResult, Reply, Binder};
 use super::Parcel;
+use crate::binder::binder::{Binder, CallResult, Reply};
+use crate::errors::*;
 
 pub struct Service {
     handle: u32,

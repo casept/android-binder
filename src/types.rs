@@ -31,13 +31,13 @@ pub type BinderUid = u32;
 
 #[repr(u32)]
 pub enum FlatBinderFlags {
-  PriorityMask = 0xff,
-  AcceptFds = 0x100,
+    PriorityMask = 0xff,
+    AcceptFds = 0x100,
 }
 
 macro_rules! pack_chars {
     ($c1:expr, $c2:expr, $c3:expr, $c4:expr) => {
-        (((($c1 as u32) << 24)) | ((($c2 as u32) << 16)) | ((($c3 as u32) << 8)) | ($c4 as u32))
+        ((($c1 as u32) << 24) | (($c2 as u32) << 16) | (($c3 as u32) << 8) | ($c4 as u32))
     };
 }
 

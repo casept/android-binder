@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::errors::*;
+use crate::types::*;
+use crate::utils::any_as_u8_slice;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use errors::*;
-use nix::fcntl::*;
 use nix::fcntl::OFlag;
-use nix::sys::mman::*;
+use nix::fcntl::*;
+use nix::sys::mman::{mmap, MapFlags, ProtFlags};
 use nix::sys::stat::Mode;
 use nix::unistd::close;
 use std::mem::size_of;
 use std::os::unix::io::RawFd;
 use std::slice::from_raw_parts;
-use types::*;
-use utils::any_as_u8_slice;
 
 const DEVICE: &str = "/dev/binder";
 #[cfg(feature = "binder_version_7")]
@@ -33,15 +33,15 @@ const BINDER_PROTOCOL_VERSION: i32 = 8;
 const BINDER_IOC_MAGIC: u8 = b'b';
 const READ_SIZE: usize = 32 * 4;
 const MAX_THREADS: usize = 15;
-const MAP_SIZE: usize = ((1 * 1024 * 1024) - (4096 * 2));
+const MAP_SIZE: usize = (1 * 1024 * 1024) - (4096 * 2);
 
-ioctl!(readwrite binder_write_read with BINDER_IOC_MAGIC, 1; BinderWriteRead);
-ioctl!(write_ptr _binder_set_idle_timeout with BINDER_IOC_MAGIC, 3; i64);
-ioctl!(write_ptr binder_set_max_threads with BINDER_IOC_MAGIC, 5; usize);
-ioctl!(write_ptr _binder_set_idle_priotity with BINDER_IOC_MAGIC, 6; i32);
-ioctl!(write_int _binder_set_context_mgr with BINDER_IOC_MAGIC, 7);
-ioctl!(write_int binder_thread_exit with BINDER_IOC_MAGIC, 8);
-ioctl!(readwrite binder_version with BINDER_IOC_MAGIC, 9; BinderVersion);
+ioctl_readwrite!(binder_write_read, BINDER_IOC_MAGIC, 1, BinderWriteRead);
+ioctl_write_ptr!(_binder_set_idle_timeout, BINDER_IOC_MAGIC, 3, i64);
+ioctl_write_ptr!(binder_set_max_threads, BINDER_IOC_MAGIC, 5, usize);
+ioctl_write_ptr!(_binder_set_idle_priotity, BINDER_IOC_MAGIC, 6, i32);
+ioctl_write_int!(_binder_set_context_mgr, BINDER_IOC_MAGIC, 7);
+ioctl_write_int!(binder_thread_exit, BINDER_IOC_MAGIC, 8);
+ioctl_readwrite!(binder_version, BINDER_IOC_MAGIC, 9, BinderVersion);
 
 pub struct Binder {
     fd: RawFd,
@@ -69,12 +69,11 @@ pub enum CallResult {
 impl<'a> Binder {
     pub fn new() -> Result<Binder> {
         let mut flags = OFlag::empty();
-        flags.set(O_RDWR, true);
-        flags.set(O_CLOEXEC, true);
+        flags.set(OFlag::O_RDWR, true);
+        flags.set(OFlag::O_CLOEXEC, true);
 
-        let fd = open(DEVICE, flags, Mode::empty()).chain_err(|| {
-            format!("Failed to open {}", DEVICE)
-        })?;
+        let fd = open(DEVICE, flags, Mode::empty())
+            .chain_err(|| format!("Failed to open {}", DEVICE))?;
 
         if !unsafe {
             let mut version_data = BinderVersion::default();
@@ -82,8 +81,7 @@ impl<'a> Binder {
                 .chain_err(|| "Failed to get version")
                 .map(|_| version_data.protocol_version as i32)
                 .map(|d| d == BINDER_PROTOCOL_VERSION)?
-        }
-        {
+        } {
             return Err("Binder protocol version mismatch".into());
         }
         info!("Binder version check passed");
@@ -94,22 +92,18 @@ impl<'a> Binder {
         };
 
         let mut prot_flags = ProtFlags::empty();
-        prot_flags.set(PROT_READ, true);
+        prot_flags.set(ProtFlags::PROT_READ, true);
         let mut flags = MapFlags::empty();
-        flags.set(MAP_PRIVATE, true);
+        flags.set(MapFlags::MAP_PRIVATE, true);
         let mapped = (&mut binder.mapped).as_mut_ptr() as *mut ::nix::libc::c_void;
         unsafe {
-            mmap(mapped, MAP_SIZE, prot_flags, flags, fd, 0).chain_err(
-                || "Failed to mmap",
-            )?;
+            mmap(mapped, MAP_SIZE, prot_flags, flags, fd, 0).chain_err(|| "Failed to mmap")?;
         }
         info!("Mapped {} bytes", MAP_SIZE);
 
         info!("Setting max threads to {}", MAX_THREADS);
         unsafe {
-            binder_set_max_threads(fd, &MAX_THREADS).chain_err(
-                || "Failed to set max threads",
-            )?;
+            binder_set_max_threads(fd, &MAX_THREADS).chain_err(|| "Failed to set max threads")?;
         };
 
         info!("Entering looper");
@@ -122,9 +116,7 @@ impl<'a> Binder {
             ..Default::default()
         };
         unsafe {
-            binder_write_read(fd, &mut d).chain_err(
-                || "Failed to enter looper",
-            )?;
+            binder_write_read(fd, &mut d).chain_err(|| "Failed to enter looper")?;
         };
 
         Ok(binder)
@@ -170,8 +162,10 @@ impl<'a> Binder {
         hex!(&d);
 
         loop {
-            let c: BinderDriverReturnProtocol = d.read_u32::<LittleEndian>()
-                .chain_err(|| "Invalid read reply")?.into();
+            let c: BinderDriverReturnProtocol = d
+                .read_u32::<LittleEndian>()
+                .chain_err(|| "Invalid read reply")?
+                .into();
             info!("BinderDriverReturnProtocol is {:?}", c);
 
             match c {
@@ -180,41 +174,54 @@ impl<'a> Binder {
                 BinderDriverReturnProtocol::BR_TRANSACTION_COMPLETE => (),
                 BinderDriverReturnProtocol::BR_SPAWN_LOOPER => (),
                 BinderDriverReturnProtocol::BR_REPLY => {
-                   if d.len() < size_of::<BinderTransactionData>() {
-                       return Err(format!("Reply data to short: {} vs {}", d.len(), size_of::<BinderTransactionData>()).into());
-                   }
+                    if d.len() < size_of::<BinderTransactionData>() {
+                        return Err(format!(
+                            "Reply data to short: {} vs {}",
+                            d.len(),
+                            size_of::<BinderTransactionData>()
+                        )
+                        .into());
+                    }
 
-                   let td: BinderTransactionData = unsafe { ::std::ptr::read(d.as_ptr() as *const _) };
-                   // d = &d[size_of::<binder_transaction_data>()..];
+                    let td: BinderTransactionData =
+                        unsafe { ::std::ptr::read(d.as_ptr() as *const _) };
+                    // d = &d[size_of::<binder_transaction_data>()..];
 
-                   debug!("Target: {:?} Cookie: {:?} Code: {}", td.target, td.cookie, td.code);
-                   debug!("Flags: {:x}", td.flags);
-                   debug!("Sender pid: {} euid: {}", td.sender_pid, td.sender_euid);
-                   debug!("Data size: {} Offsets size: {}", td.data_size, td.offsets_size);
+                    debug!(
+                        "Target: {:?} Cookie: {:?} Code: {}",
+                        td.target, td.cookie, td.code
+                    );
+                    debug!("Flags: {:x}", td.flags);
+                    debug!("Sender pid: {} euid: {}", td.sender_pid, td.sender_euid);
+                    debug!(
+                        "Data size: {} Offsets size: {}",
+                        td.data_size, td.offsets_size
+                    );
 
-                   if (td.flags & TransactionFlags::STATUS_CODE as u32) != 0 {
-                       let code = unsafe { *(td.data as *const u32) };
-                       debug!("Status code: {:x}", code);
-                       return Ok(CallResult::Reply(Reply::StatusCode(code)));
-                   }
+                    if (td.flags & TransactionFlags::STATUS_CODE as u32) != 0 {
+                        let code = unsafe { *(td.data as *const u32) };
+                        debug!("Status code: {:x}", code);
+                        return Ok(CallResult::Reply(Reply::StatusCode(code)));
+                    }
 
-                   let r = if td.data_size > 0 {
-                       unsafe {
-                           let p = td.data as *const u8;
-                           from_raw_parts(p, td.data_size as usize).to_vec()
-                       }
-                   } else {
-                       vec![]
-                   };
-                   if !r.is_empty() {
-                       debug!("Data:");
-                       hex!(&r);
-                   }
-                   return Ok(CallResult::Reply(Reply::Data(r)));
-                },
-                BinderDriverReturnProtocol::BR_FAILED_REPLY => return Err("Transaction failed".into()),
+                    let r = if td.data_size > 0 {
+                        unsafe {
+                            let p = td.data as *const u8;
+                            from_raw_parts(p, td.data_size as usize).to_vec()
+                        }
+                    } else {
+                        vec![]
+                    };
+                    if !r.is_empty() {
+                        debug!("Data:");
+                        hex!(&r);
+                    }
+                    return Ok(CallResult::Reply(Reply::Data(r)));
+                }
+                BinderDriverReturnProtocol::BR_FAILED_REPLY => {
+                    return Err("Transaction failed".into())
+                }
                 _ => unimplemented!(),
-
             }
 
             if d.is_empty() {
@@ -234,9 +241,7 @@ impl<'a> Binder {
             ..Default::default()
         };
         unsafe {
-            binder_write_read(self.fd, &mut d).chain_err(
-                || "Failed to enter looper",
-            )?;
+            binder_write_read(self.fd, &mut d).chain_err(|| "Failed to enter looper")?;
         };
 
         loop {
@@ -248,16 +253,16 @@ impl<'a> Binder {
                 ..Default::default()
             };
             unsafe {
-                binder_write_read(self.fd, &mut d).chain_err(
-                    || "Failed to enter looper",
-                )?;
+                binder_write_read(self.fd, &mut d).chain_err(|| "Failed to enter looper")?;
             };
 
             let mut d = &read_buffer[..(bwr.read_consumed as usize)];
 
-            while ! d.is_empty() {
-                let c: BinderDriverReturnProtocol = d.read_u32::<LittleEndian>()
-                    .chain_err(|| "Invalid read reply")?.into();
+            while !d.is_empty() {
+                let c: BinderDriverReturnProtocol = d
+                    .read_u32::<LittleEndian>()
+                    .chain_err(|| "Invalid read reply")?
+                    .into();
                 info!("BinderDriverReturnProtocol is {:?}", c);
 
                 match c {
@@ -266,14 +271,14 @@ impl<'a> Binder {
                     BinderDriverReturnProtocol::BR_TRANSACTION_COMPLETE => (),
                     BinderDriverReturnProtocol::BR_SPAWN_LOOPER => (),
                     BinderDriverReturnProtocol::BR_REPLY => (),
-                    BinderDriverReturnProtocol::BR_FAILED_REPLY => return Err("Transaction failed".into()),
+                    BinderDriverReturnProtocol::BR_FAILED_REPLY => {
+                        return Err("Transaction failed".into())
+                    }
                     _ => unimplemented!(),
-
                 }
             }
         }
     }
-
 }
 
 impl Drop for Binder {

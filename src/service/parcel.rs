@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::errors::*;
+use crate::types::{BinderPtr, BinderType, FlatBinderFlags, FlatBinderObject};
+use crate::utils::any_as_u8_slice;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use errors::*;
 use std::mem::size_of;
 use std::ops::Deref;
-use types::{BinderType, BinderPtr, FlatBinderObject, FlatBinderFlags};
-use utils::any_as_u8_slice;
 
 const STRICT_MODE_PENALTY_GATHER: i32 = 0x40 << 16;
 
@@ -55,27 +55,27 @@ impl Parcel {
     }
 
     pub fn put_i16(&mut self, n: i16) -> Result<()> {
-        self.data.write_i16::<LittleEndian>(n).chain_err(
-            || "Failed to put i16",
-        )
+        self.data
+            .write_i16::<LittleEndian>(n)
+            .chain_err(|| "Failed to put i16")
     }
 
     pub fn put_u16(&mut self, n: u16) -> Result<()> {
-        self.data.write_u16::<LittleEndian>(n).chain_err(
-            || "Failed to put u16",
-        )
+        self.data
+            .write_u16::<LittleEndian>(n)
+            .chain_err(|| "Failed to put u16")
     }
 
     pub fn put_i32(&mut self, n: i32) -> Result<()> {
-        self.data.write_i32::<LittleEndian>(n).chain_err(
-            || "Failed to put i32",
-        )
+        self.data
+            .write_i32::<LittleEndian>(n)
+            .chain_err(|| "Failed to put i32")
     }
 
     pub fn put_u32(&mut self, n: u32) -> Result<()> {
-        self.data.write_u32::<LittleEndian>(n).chain_err(
-            || "Failed to put u32",
-        )
+        self.data
+            .write_u32::<LittleEndian>(n)
+            .chain_err(|| "Failed to put u32")
     }
 
     pub fn put_str16(&mut self, s: &str) -> Result<()> {
@@ -85,7 +85,7 @@ impl Parcel {
             self.put_u16(c)?;
         }
         self.put_u16(0)?; // zero termination
-        // padding
+                          // padding
         if (self.data.len() % 4) != 0 {
             let l = self.data.len();
             self.data.resize(l + 4 - (l % 4), 0);
@@ -138,9 +138,11 @@ impl Parcel {
     // }
 
     pub fn get_i32(&mut self) -> Result<i32> {
-        let r = self.data.as_slice().read_i32::<LittleEndian>().chain_err(
-            || "Data exhausted",
-        )?;
+        let r = self
+            .data
+            .as_slice()
+            .read_i32::<LittleEndian>()
+            .chain_err(|| "Data exhausted")?;
         self.data.drain(..size_of::<i32>());
         Ok(r)
     }
@@ -149,22 +151,23 @@ impl Parcel {
         let l = self.get_i32()? as usize;
         debug!("length: {}", l);
         let d = self.data.drain(..((l * 2) + 2)).collect::<Vec<u8>>();
-        let r: &[u16] = {
-            unsafe { ::std::slice::from_raw_parts(d.as_slice().as_ptr() as *const u16, l * 2) }
-        };
+        let r: &[u16] =
+            { unsafe { ::std::slice::from_raw_parts(d.as_slice().as_ptr() as *const u16, l * 2) } };
         Ok(String::from_utf16(r).chain_err(|| "Invlid string")?)
     }
 
-
     pub fn get_obj(&mut self) -> Result<Object> {
-        let d = self.data.drain(..size_of::<FlatBinderObject>()).collect::<Vec<u8>>();
+        let d = self
+            .data
+            .drain(..size_of::<FlatBinderObject>())
+            .collect::<Vec<u8>>();
         let o: FlatBinderObject = unsafe { ::std::ptr::read((&d).as_ptr() as *const _) };
         let t: BinderType = o.type_.into();
         match t {
             BinderType::Handle => {
                 let h = o.handle_binder as u32;
                 return Ok(Object::Handle(h));
-            },
+            }
             _ => unimplemented!(),
         }
     }

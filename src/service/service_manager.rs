@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use binder::binder::{CallResult, Reply, Binder};
-use errors::*;
-use types::*;
-use super::parcel::{Parcel, Object};
+use super::parcel::{Object, Parcel};
 use super::Service;
+use crate::binder::binder::{Binder, CallResult, Reply};
+use crate::errors::*;
+use crate::types::*;
 
 const BINDER_SERVICE_MANAGER: u32 = 0;
 
@@ -41,12 +41,8 @@ impl ServiceManager {
     fn ping(&self) -> Result<()> {
         info!("Pingging service manager");
         let d = Parcel::default();
-        self.binder.call(
-            &d,
-            BINDER_SERVICE_MANAGER,
-            Transaction::Ping as u32,
-            0x10,
-        )?;
+        self.binder
+            .call(&d, BINDER_SERVICE_MANAGER, Transaction::Ping as u32, 0x10)?;
         Ok(())
     }
 
@@ -54,12 +50,9 @@ impl ServiceManager {
         let mut p = Parcel::default();
         p.put_interface_token(INTERFACE_SERVICE_MANAGER)?;
         p.put_str16(name)?;
-        let r = self.binder.call(
-            &p,
-            BINDER_SERVICE_MANAGER,
-            SVC_MGR_GET_SERVICE,
-            0,
-        )?;
+        let r = self
+            .binder
+            .call(&p, BINDER_SERVICE_MANAGER, SVC_MGR_GET_SERVICE, 0)?;
 
         if let CallResult::Reply(r) = r {
             match r {
@@ -70,10 +63,10 @@ impl ServiceManager {
                         Object::Handle(h) => {
                             debug!("Received handle {}", h);
                             return Ok(Service::new(h, self.binder));
-                        },
+                        }
                         _ => unimplemented!(),
                     }
-                },
+                }
                 _ => unimplemented!(),
             }
         }
@@ -86,17 +79,20 @@ impl ServiceManager {
         p.put_str16(name)?;
         // TODO: Adding services is not yet functional. Transmitting binder handles
         // require some ioctrls that are done from Parcel in libbinder. This part is missing here.
-        p.put_binder(0xABABABAB as BinderPtr, 0xCACACACA as BinderPtr)?; 
+        p.put_binder(0xABABABAB as BinderPtr, 0xCACACACA as BinderPtr)?;
         p.put_i32(if allow_isolated { 1 } else { 0 })?;
-        match self.binder.call(&p, BINDER_SERVICE_MANAGER, SVC_MGR_ADD_SERVICE, 0) {
+        match self
+            .binder
+            .call(&p, BINDER_SERVICE_MANAGER, SVC_MGR_ADD_SERVICE, 0)
+        {
             Ok(CallResult::Reply(Reply::StatusCode(c))) => {
                 warn!("Received status code {}", c);
                 return Err("Failed to add service".into());
-            },
+            }
             Ok(CallResult::Reply(Reply::Data(d))) => {
                 info!("Received data:");
                 hex!(&d);
-            },
+            }
             _ => unimplemented!(),
         }
         Ok(())
@@ -110,12 +106,15 @@ impl ServiceManager {
             let mut data = Parcel::default();
             data.put_interface_token(INTERFACE_SERVICE_MANAGER)?;
             data.put_u32(n)?;
-            if let Ok(r) = self.binder.call(&data, BINDER_SERVICE_MANAGER, SVC_MGR_LIST_SERVICES, 0) {
+            if let Ok(r) = self
+                .binder
+                .call(&data, BINDER_SERVICE_MANAGER, SVC_MGR_LIST_SERVICES, 0)
+            {
                 if let CallResult::Reply(r) = r {
                     match r {
                         Reply::Data(d) => {
                             let mut p = Parcel::from_buf(&d);
-                            let svc =  p.get_str16()?;
+                            let svc = p.get_str16()?;
                             debug!("service: {}", svc);
                             result.push(svc);
                         }

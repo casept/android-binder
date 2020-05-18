@@ -6,22 +6,22 @@ script = [
 
 [tasks.example_list_build]
 command = "cargo"
-args = ["build", "--example", "servicemanager_list", "--target", "arm-linux-androideabi"]
+args = ["build", "--example", "servicemanager_add", "--target", "armv7-linux-androideabi"]
 
 [tasks.example_add_build]
 command = "cargo"
-args = ["build", "--example", "servicemanager_add", "--target", "arm-linux-androideabi"]
+args = ["build", "--example", "servicemanager_add", "--target", "armv7-linux-androideabi"]
 
 [tasks.example_list_run]
-dependencies = ["example_list_build"]
+dependencies = ["example_list_build", "root_remount"]
 script = [
-  "adb push target/arm-linux-androideabi/debug/examples/servicemanager_list /system/bin",
+  "adb push target/armv7-linux-androideabi/debug/examples/servicemanager_list /system/bin",
   "adb shell /system/bin/servicemanager_list"
 ]
 
 [tasks.example_add_run]
-dependencies = ["example_add_build"]
+dependencies = ["example_add_build", "root_remount"]
 script = [
-  "adb push target/arm-linux-androideabi/debug/examples/servicemanager_add /system/bin",
+  "adb push target/armv7-linux-androideabi/debug/examples/servicemanager_add /system/bin",
   "adb shell /system/bin/servicemanager_add"
 ]

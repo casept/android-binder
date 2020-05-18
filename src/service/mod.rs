@@ -13,9 +13,9 @@
 // limitations under the License.
 
 mod parcel;
-mod service_manager;
 mod service;
+mod service_manager;
 
-pub use self::service::Service;
 pub use self::parcel::Parcel;
+pub use self::service::Service;
 pub use self::service_manager::ServiceManager;
